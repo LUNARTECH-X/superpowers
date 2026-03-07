@@ -52,9 +52,11 @@ Both should show symlinks pointing to the superpowers directory.
 
 ### Windows
 
+**Note:** The skills junction works **without** Administrator or Developer Mode. Only the plugin symlink requires elevated privileges.
+
 **Prerequisites:**
 - Git installed
-- Either **Developer Mode** enabled OR **Administrator privileges**
+- **For plugin symlink only:** Developer Mode enabled OR Administrator privileges
   - Windows 10: Settings → Update & Security → For developers
   - Windows 11: Settings → System → For developers
 
@@ -62,7 +64,7 @@ Pick your shell below: [Command Prompt](#command-prompt) | [PowerShell](#powersh
 
 #### Command Prompt
 
-Run as Administrator, or with Developer Mode enabled:
+**Note:** Step 4 (plugin symlink) requires Administrator or Developer Mode. Step 5 (skills junction) works without elevated privileges.
 
 ```cmd
 :: 1. Install Superpowers
@@ -87,7 +89,7 @@ mklink /J "%USERPROFILE%\.config\opencode\skills\superpowers" "%USERPROFILE%\.co
 
 #### PowerShell
 
-Run as Administrator, or with Developer Mode enabled:
+**Note:** Step 4 (plugin symlink) requires Administrator or Developer Mode. Step 5 (skills junction) works without elevated privileges.
 
 ```powershell
 # 1. Install Superpowers
@@ -111,6 +113,8 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.config\opencode\skills\supe
 ```
 
 #### Git Bash
+
+**Note:** Step 4 (plugin symlink) requires Administrator or Developer Mode. Step 5 (skills junction) works without elevated privileges.
 
 Note: Git Bash's native `ln` command copies files instead of creating symlinks. Use `cmd //c mklink` instead (the `//c` is Git Bash syntax for `/c`).
 
