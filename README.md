@@ -98,33 +98,47 @@ Start a new session in your chosen platform and ask for something that should tr
 
 ## What's Inside
 
-### Skills Library
+### Skills Library — 1,349 skills
 
-**Testing**
+The Superpowers skills library has grown well beyond the core development workflow. The full set is enumerated in [CATALOG.md](CATALOG.md). High-level breakdown:
 
-- **test-driven-development** - RED-GREEN-REFACTOR cycle (includes testing anti-patterns reference)
+| Group | Skills | What's inside |
+|---|---:|---|
+| Core workflow | 14 | TDD, planning, debugging, code review, worktrees, subagent dispatch |
+| `writing-and-planning/` | 865 | Copywriting (`document-editorial`, `document-skills`, `writing-skills`), productivity |
+| `academy-skills/` | 201 | Academic research, paper writing, citations, scientific tooling, 100+ database connectors — curated from 5 upstream repos with duplicates removed and naming standardized |
+| `data-and-science/` | 151 | Research and data tooling |
+| `marketing/` | 35 | Branding, campaigns and creative ideation |
+| `development/` | 34 | Backend, frontend, devops, architecture, git workflows, debugging, database, best practices, code review |
+| `business/` | 26 | Founder workflows, strategy |
+| `design-and-media/` | 18 | UI/UX, visuals |
+| `ai-and-agents/` | 5 | Agent development, orchestration |
 
-**Debugging**
+#### Core workflow skills (the 14 that drive the loop)
 
-- **systematic-debugging** - 4-phase root cause process (includes root-cause-tracing, defense-in-depth, condition-based-waiting techniques)
-- **verification-before-completion** - Ensure it's actually fixed
+**Testing & verification**
+- **test-driven-development** — RED-GREEN-REFACTOR cycle (includes testing anti-patterns reference)
+- **systematic-debugging** — 4-phase root cause process (root-cause-tracing, defense-in-depth, condition-based-waiting)
+- **verification-before-completion** — Confirm it's actually fixed before declaring done
 
-**Collaboration**
+**Planning & execution**
+- **brainstorming** — Socratic design refinement
+- **writing-plans** — Detailed implementation plans
+- **executing-plans** — Batch execution with checkpoints
+- **subagent-driven-development** — Fast iteration with two-stage review (spec compliance, then code quality)
+- **dispatching-parallel-agents** — Concurrent subagent workflows
 
-- **brainstorming** - Socratic design refinement
-- **writing-plans** - Detailed implementation plans
-- **executing-plans** - Batch execution with checkpoints
-- **dispatching-parallel-agents** - Concurrent subagent workflows
-- **requesting-code-review** - Pre-review checklist
-- **receiving-code-review** - Responding to feedback
-- **using-git-worktrees** - Parallel development branches
-- **finishing-a-development-branch** - Merge/PR decision workflow
-- **subagent-driven-development** - Fast iteration with two-stage review (spec compliance, then code quality)
+**Branch & review**
+- **using-git-worktrees** — Parallel development branches
+- **requesting-code-review** — Pre-review checklist
+- **receiving-code-review** — Responding to feedback
+- **finishing-a-development-branch** — Merge/PR decision workflow
 
 **Meta**
+- **writing-skills** — Create new skills following best practices
+- **using-superpowers** — Introduction to the skills system
 
-- **writing-skills** - Create new skills following best practices (includes testing methodology)
-- **using-superpowers** - Introduction to the skills system
+For the complete listing across all categories — every skill with its path, name, and description — see [CATALOG.md](CATALOG.md).
 
 ## Philosophy
 
