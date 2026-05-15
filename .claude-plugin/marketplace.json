@@ -1,0 +1,20 @@
+{
+  "name": "superpowers-dev",
+  "description": "Development marketplace for Superpowers core skills library",
+  "owner": {
+    "name": "Superpowers Contributors",
+    "email": "noreply@example.com"
+  },
+  "plugins": [
+    {
+      "name": "superpowers",
+      "description": "Core skills library for Claude Code: TDD, debugging, collaboration patterns, and proven techniques",
+      "version": "4.3.1",
+      "source": "./",
+      "author": {
+        "name": "Superpowers Contributors",
+        "email": "noreply@example.com"
+      }
+    }
+  ]
+}

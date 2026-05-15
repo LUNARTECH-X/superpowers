@@ -1,0 +1,289 @@
+name: Spec Consistency
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  # Suffix by event_name so push and pull_request events on the same ref
+  # don't fight over the same group. Without the suffix, GHA cancels one
+  # of the two — usually leaving the cancelled run in a `failure` / stuck
+  # `queued` state that triggers GitHub failure-notification emails to
+  # subscribers even though the latest push event run actually succeeded.
+  group: spec-consistency-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  spec-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # v3.7.1 byte-equivalence SHA gate derives the v3.6.7 base commit
+          # via `git log -1 -- scripts/v3_6_7_inversion_manifest.json`. A
+          # shallow clone (default fetch-depth: 1) would render that lookup
+          # vacuous. Deepening the clone here lets the lint hash the base
+          # block directly without falling back to `git fetch --unshallow`.
+          # Spec: 2026-04-30-ars-v3.6.8-trust-provenance-and-drift-transparency-spec.md § Step 0 (round-6 R6-002 + round-7 R7-001).
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install lint dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run spec consistency check
+        run: python3 scripts/check_spec_consistency.py
+
+      - name: Check PREPRINT_VENUES list consistency (#105)
+        run: python3 scripts/check_preprint_venues_consistency.py
+
+      - name: Run #105 migration unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_contamination_signals scripts.test_migrate_literature_corpus_to_v3_7_3 scripts.test_semantic_scholar_client -v
+
+      - name: Check data_access_level declarations
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_data_access_level.py
+
+      - name: Check task_type declarations
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_task_type.py
+
+      - name: Run compliance validator + fixture unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_compliance_report scripts.test_validate_compliance_fixtures -v
+
+      - name: Check collaboration depth rubric + observer contract
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_collaboration_depth_rubric.py
+
+      - name: Run collaboration depth rubric unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_collaboration_depth_rubric -v
+
+      - name: Check version consistency (CLAUDE.md / SKILL.md / CHANGELOG)
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_version_consistency.py
+
+      - name: Run version consistency unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_version_consistency -v
+
+      - name: Run check_sprint_contract unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_sprint_contract -v
+
+      - name: Validate sprint contract templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          ARS_VERSION=$(grep -m1 -oE '## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          if [[ -z "$ARS_VERSION" ]]; then
+            echo "ERROR: could not extract ARS version from CHANGELOG.md (need '## [X.Y.Z]' heading)" >&2
+            exit 1
+          fi
+          for f in shared/contracts/reviewer/*.json; do
+            python3 scripts/check_sprint_contract.py "$f" --ars-version "v${ARS_VERSION}"
+          done
+          # v3.6.6: writer + evaluator template validation loops mirror reviewer loop above.
+          for f in shared/contracts/writer/*.json; do
+            python3 scripts/check_sprint_contract.py "$f" --ars-version "v${ARS_VERSION}"
+          done
+          for f in shared/contracts/evaluator/*.json; do
+            python3 scripts/check_sprint_contract.py "$f" --ars-version "v${ARS_VERSION}"
+          done
+
+      - name: Validate v3.6.6 A/B fixture manifest
+        run: python3 scripts/check_v3_6_6_ab_manifest.py
+
+      - name: Validate literature_corpus schemas and examples
+        run: python3 scripts/check_literature_corpus_schema.py
+
+      - name: Validate corpus consumer protocol (v3.6.5+)
+        run: python3 scripts/check_corpus_consumer_protocol.py
+
+      - name: Check adapter docs up-to-date
+        run: python3 scripts/sync_adapter_docs.py --check
+
+      - name: Validate passport reset contract
+        run: python3 scripts/check_passport_reset_contract.py --root .
+
+      - name: Run passport reset contract tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_passport_reset_contract -v
+
+      - name: Validate v3.6.7 downstream-agent pattern protection
+        run: python3 scripts/check_v3_6_7_pattern_protection.py
+
+      - name: Run v3.6.7 pattern-protection mutation tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_v3_6_7_pattern_protection -v
+
+      - name: Validate v3.7.1 byte-equivalence SHA gate (v3.6.7 boundary)
+        # v3.7.1 work must NOT mutate v3.6.7-tagged PATTERN PROTECTION blocks.
+        # This lint hashes each block at PR HEAD and at the v3.6.7 base commit
+        # (derived via `git log -1 -- scripts/v3_6_7_inversion_manifest.json`)
+        # and asserts equality. Requires fetch-depth: 0 on the checkout step.
+        run: python3 scripts/check_v3_6_8_pattern_protection.py
+
+      - name: Run v3.7.1 SHA gate mutation tests
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest
+          pytest scripts/test_check_v3_6_8_pattern_protection.py -v
+
+      - name: Validate v3.7.1 trust-chain frontmatter schema
+        # Step 1 of v3.7.1: enforces three firm rules from spec §3.1
+        # (verified⇒acquired+method, not-acquired⇒no-real-audit-round, no
+        # literal human_read_*) across literature_corpus[] entries.
+        run: python3 scripts/check_v3_6_8_frontmatter_trust_schema.py
+
+      - name: Run v3.7.1 trust-chain frontmatter schema tests
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest pyyaml jsonschema
+          pytest scripts/test_check_v3_6_8_frontmatter_trust_schema.py -v
+
+      - name: Validate v3.7.1 audit Scope Report block (Step 2 / D2)
+        # Step 2 of v3.7.1: enforces spec §3.2 Scope Report contract on the
+        # codex audit prompt template — Section 0 header + four required
+        # content fields + three aggregate-status splits + forbidden
+        # combined-aggregate "PASSED" verb (spec line 152).
+        run: python3 scripts/check_v3_6_8_audit_scope_block.py
+
+      - name: Run v3.7.1 audit Scope Report block mutation tests
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest
+          pytest scripts/test_check_v3_6_8_audit_scope_block.py -v
+
+      - name: Validate v3.7.1 Cite-Time Provenance Finalizer (Step 3b)
+        # Step 3b of v3.7.1: enforces spec §3.3 4-cell matrix + §3.6 peer-file
+        # join + idempotency + revision-loop preservation on the
+        # `## Cite-Time Provenance Finalizer (v3.7.1)` subsection of
+        # academic-pipeline/agents/pipeline_orchestrator_agent.md.
+        run: python3 scripts/check_v3_6_8_cite_provenance_pipeline.py
+
+      - name: Run v3.7.1 Cite-Time Provenance Finalizer mutation tests
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest
+          pytest scripts/test_check_v3_6_8_cite_provenance_pipeline.py -v
+
+      - name: Run v3.7.3 Three-Layer Citation lint regression tests
+        # v3.7.3 F18 closure (codex round-7): the v3.7.3 three-layer
+        # citation lint enforces the L3-1 claim-faithfulness locator
+        # contract (per-citation `<!--anchor:<kind>:<value>-->` marker,
+        # hyphen-encoding for quote values, malformed-ref detection,
+        # empty-value rejection, fenced-code-block isolation). Without
+        # this CI step, prompt-vs-lint regressions could ship without
+        # PR checks flagging them. Spec:
+        # docs/design/2026-05-12-ars-v3.7.3-claim-faithfulness-and-contaminated-source-spec.md
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest
+          pytest scripts/test_check_v3_7_3_three_layer_citation.py -v
+
+      - name: Run v3.7.1 audit_snapshot render-side Section 0 regression tests
+        # PR #78 codex round-5 P2-7: lint enforces the static template
+        # contract, but render_prompt is the runtime path that actually
+        # builds the codex prompt. Without this CI step, render_prompt
+        # could drop Section 0 again silently while the template lint
+        # stays green — exactly the failure mode round-1 P1 closed.
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest
+          pytest scripts/test_audit_snapshot_render_section_0.py -v
+
+      - name: Run v3.6.7 Step 6 audit schema + helper tests (Phase 6.2 + 6.4)
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_audit_schemas scripts.test__next_verified_at_ms -v
+
+      - name: Run v3.6.7 Step 6 Phase 6.6 orchestrator prompt static checks
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_v3_6_7_phase_6_6 -v
+
+      - name: Run v3.6.7 Step 6 Phase 6.3 lint script tests (pytest)
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest pyyaml jsonschema
+          pytest scripts/test_check_audit_artifact_consistency.py -v
+
+      - name: Validate v3.6.7 Step 8 pattern-eval fixture manifests (Phase 6.8)
+        run: python3 scripts/check_pattern_eval_manifest.py
+
+      - name: Run v3.6.7 Step 8 pattern-eval-unit tests (Phase 6.8 micro fixtures)
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest pyyaml jsonschema
+          pytest scripts/test_check_pattern_eval_manifest.py -v
+          # Includes micro/run_id/coverage + inventory-coverage + synthetic per-phase
+          # injection tests (F-301/F-1001 closures). Synthetic supersession lives in
+          # the integration step below.
+          pytest scripts/test_pattern_eval_runtime.py -v -k "micro or run_id or coverage or phase_inventory or fixture_phase or (synthetic and not supersession)"
+
+      - name: Run v3.6.7 Step 8 pattern-eval-integration tests (Phase 6.8 integration fixture)
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest pyyaml jsonschema
+          pytest scripts/test_pattern_eval_runtime.py -v -k "integration or (synthetic and supersession)"
+
+      - name: Run v3.6.7 Phase 6.1 wrapper end-to-end dispatch test (Linux Bash 4+)
+        if: runner.os == 'Linux'
+        env:
+          PYTHONPATH: .
+        run: |
+          pip install pytest pyyaml jsonschema
+          pytest scripts/test_run_codex_audit_e2e.py -v
+
+      - name: "Check policy anchor table structural lint (#108)"
+        run: python3 scripts/check_policy_anchor_table.py
+
+      - name: "Run policy anchor table validator unit tests (#108)"
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_policy_anchor_table -v
+
+      - name: "Check policy anchor disclosure protocol lint (#108)"
+        run: python3 scripts/check_policy_anchor_protocol.py
+
+      - name: "Run policy anchor protocol validator unit tests (#108)"
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_policy_anchor_protocol -v
+
+      - name: "Run policy anchor disclosure conformance suite — referee (#108)"
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_policy_anchor_disclosure -v
+
