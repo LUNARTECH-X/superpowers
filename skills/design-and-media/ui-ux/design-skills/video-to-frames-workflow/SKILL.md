@@ -83,6 +83,7 @@ Use Next.js. Preload frames. Map 0-100% scroll to frame 1-N.
 | EZGif | Free, fast, web-based | Limited file size |
 | FFmpeg | Powerful, local | Requires CLI |
 | VLC | Already installed | Manual process |
+| VideoToImageSequence | Free, browser-based, no uploads (privacy-safe), JPG/PNG/WebP output | Browser-based, best for quick no-install jobs |
 
 ### FFmpeg Command (Alternative)
 ```bash
